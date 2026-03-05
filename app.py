@@ -1,17 +1,17 @@
 import streamlit as st
 import pandas as pd
 import os
+import io  # 엑셀 파일 변환을 위해 추가된 모듈
 
 # ------------------------------------------------
 # 앱 설정
 # ------------------------------------------------
-ADMIN_PASSWORD = "space_admin_2026" # 관리자 비밀번호 (배포 전 필요시 변경하세요)
+ADMIN_PASSWORD = "space_admin_2026" # 관리자 비밀번호
 DATA_FILE = "founders_list.csv"
 
 def main():
     st.set_page_config(page_title="우주데이터센터 연구회 발기인 신청", page_icon="🚀", layout="centered")
 
-    # 제목 크기를 st.title() 보다 작게 조정
     st.markdown("## 🚀 우주데이터센터 연구회 발기인 신청")
     st.write("우주데이터센터 연구회 발족을 위해 함께해 주실 전문가 여러분을 모십니다.")
     st.divider()
@@ -19,7 +19,6 @@ def main():
     # 1. 발족 선언문 표시 (터치하여 펼치기 기능)
     st.header("1. 발족 선언문")
     
-    # expander를 사용하여 한 번 터치하면 내용이 펼쳐지도록 구현
     with st.expander("📜 우주데이터센터 연구회 발족을 위한 선언문 (터치하여 펼치기)"):
         st.markdown("""
         전 세계는 지금 클라우드 컴퓨팅과 인공지능(AI)의 급속한 확산 속에서 새로운 전환점에 서 있습니다. 클라우드는 더 이상 단순한 IT 인프라가 아니라, 경제·산업·사회 전반을 재구성하는 핵심 기반으로 자리 잡았습니다. AI 기술의 발전은 의료, 금융, 제조, 국방, 문화 콘텐츠 등 거의 모든 영역에서 인간의 역량을 증폭시키고 있으며, 그 중심에는 고성능 컴퓨팅과 이를 지탱하는 데이터센터가 존재합니다.
@@ -91,22 +90,26 @@ def main():
 
     st.divider()
 
-    # 4. 관리자 전용 다운로드 (비밀번호 지워짐 현상 방지 적용)
+    # 4. 관리자 전용 다운로드 (엑셀 파일 생성 기능 적용)
     st.header("🔐 관리자 전용 (명단 다운로드)")
     with st.expander("관리자 메뉴 열기"):
-        # key="admin_pwd" 속성으로 화면이 새로고침 되어도 비밀번호가 유지되도록 함
         pwd_input = st.text_input("비밀번호를 입력하세요", type="password", key="admin_pwd")
         
         if pwd_input == ADMIN_PASSWORD:
             if os.path.exists(DATA_FILE):
                 df = pd.read_csv(DATA_FILE)
-                csv = df.to_csv(index=False, encoding='utf-8-sig')
                 
+                # 메모리 상에서 데이터프레임을 엑셀 파일 형태로 변환
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='발기인명단')
+                
+                # 생성된 엑셀 데이터를 다운로드 버튼으로 제공
                 st.download_button(
-                    label="📥 발기인 명단 다운로드 (Excel 호환 CSV)",
-                    data=csv,
-                    file_name='space_data_center_founders.csv',
-                    mime='text/csv',
+                    label="📥 발기인 명단 다운로드 (엑셀 파일 .xlsx)",
+                    data=excel_buffer.getvalue(),
+                    file_name='space_data_center_founders.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 )
             else:
                 st.info("아직 등록된 발기인 데이터가 없습니다.")
