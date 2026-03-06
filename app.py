@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import io  # 엑셀 파일 변환을 위해 추가된 모듈
+import io
 
 # ------------------------------------------------
 # 앱 설정
@@ -68,13 +68,17 @@ def main():
 
     if submit_button:
         if name and affiliation and contact and dob and committee != "선택해주세요":
+            
+            # 서버 시간에 관계없이 명시적으로 한국 시간(UTC+9)을 계산하여 적용
+            kst_time = (pd.Timestamp.utcnow() + pd.Timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+            
             new_data = pd.DataFrame({
                 "성명": [name],
                 "소속": [affiliation],
                 "연락처": [contact],
                 "생년월일": [dob],
                 "희망분과": [committee],
-                "신청일시": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")]
+                "신청일시": [kst_time]
             })
 
             if os.path.exists(DATA_FILE):
@@ -118,3 +122,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    main()
+
