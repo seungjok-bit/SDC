@@ -16,7 +16,7 @@ def main():
     st.write("우주데이터센터 연구회 발족을 위해 함께해 주실 전문가 여러분을 모십니다.")
     st.divider()
 
-    # 1. 발족 선언문 표시 (터치하여 펼치기 기능)
+    # 1. 발족 선언문 표시 
     st.header("1. 발족 선언문")
     
     with st.expander("📜 우주데이터센터 연구회 발족을 위한 선언문 (터치하여 펼치기)"):
@@ -56,7 +56,6 @@ def main():
                 "선택해주세요",
                 "우주데이터센터기획 정책 분과위원회",
                 "위성설계기술 분과위원회",
-                "탑재컴퓨터설계기술 분과위원회",
                 "대형태양광기술 및 전력관리 분과위원회",
                 "위성열제어기술 분과위원회",
                 "방사선차폐기술 분과위원회",
@@ -70,32 +69,50 @@ def main():
     if submit_button:
         if name and affiliation and contact and dob and committee != "선택해주세요":
             
-            # 서버 시간에 관계없이 명시적으로 한국 시간(UTC+9)을 계산하여 적용
-            kst_time = (pd.Timestamp.utcnow() + pd.Timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+            # 입력 데이터 앞뒤 공백 제거 (띄어쓰기 오류 방지)
+            clean_name = name.strip()
+            clean_dob = dob.strip()
             
-            new_data = pd.DataFrame({
-                "성명": [name],
-                "소속": [affiliation],
-                "연락처": [contact],
-                "생년월일": [dob],
-                "희망분과": [committee],
-                "신청일시": [kst_time]
-            })
-
-            if os.path.exists(DATA_FILE):
+            file_exists = os.path.exists(DATA_FILE)
+            is_duplicate = False
+            
+            if file_exists:
                 df = pd.read_csv(DATA_FILE)
-                df = pd.concat([df, new_data], ignore_index=True)
-            else:
-                df = new_data
+                # 이름과 생년월일이 모두 일치하는 데이터가 있는지 검사
+                if not df.empty and '성명' in df.columns and '생년월일' in df.columns:
+                    # 데이터 프레임 내의 값들도 공백을 제거하고 문자열로 변환하여 비교
+                    match_name = df['성명'].astype(str).str.strip() == clean_name
+                    match_dob = df['생년월일'].astype(str).str.strip() == clean_dob
+                    is_duplicate = (match_name & match_dob).any()
 
-            df.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
-            st.success("✅ 발기인 신청이 성공적으로 완료되었습니다. 동참해 주셔서 감사합니다.")
+            if is_duplicate:
+                # 중복일 경우 경고 메시지 출력하고 저장 생략
+                st.error(f"⚠️ {clean_name}님은 이미 발기인 명단에 등록되어 있습니다.")
+            else:
+                # 중복이 아닐 경우 정상 저장 로직 수행
+                kst_time = (pd.Timestamp.utcnow() + pd.Timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+                new_data = pd.DataFrame({
+                    "성명": [clean_name],
+                    "소속": [affiliation],
+                    "연락처": [contact],
+                    "생년월일": [clean_dob],
+                    "희망분과": [committee],
+                    "신청일시": [kst_time]
+                })
+
+                if file_exists:
+                    df = pd.concat([df, new_data], ignore_index=True)
+                else:
+                    df = new_data
+
+                df.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
+                st.success("✅ 발기인 신청이 성공적으로 완료되었습니다. 동참해 주셔서 감사합니다.")
         else:
             st.warning("⚠️ 누락된 항목이 있습니다. 모든 항목을 정확히 선택 및 입력해 주세요.")
 
     st.divider()
 
-    # 4. 관리자 전용 다운로드 (엑셀 파일 생성 기능 적용)
+    # 4. 관리자 전용 다운로드
     st.header("🔐 관리자 전용 (명단 다운로드)")
     with st.expander("관리자 메뉴 열기"):
         pwd_input = st.text_input("비밀번호를 입력하세요", type="password", key="admin_pwd")
@@ -104,12 +121,10 @@ def main():
             if os.path.exists(DATA_FILE):
                 df = pd.read_csv(DATA_FILE)
                 
-                # 메모리 상에서 데이터프레임을 엑셀 파일 형태로 변환
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name='발기인명단')
                 
-                # 생성된 엑셀 데이터를 다운로드 버튼으로 제공
                 st.download_button(
                     label="📥 발기인 명단 다운로드 (엑셀 파일 .xlsx)",
                     data=excel_buffer.getvalue(),
@@ -123,4 +138,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
