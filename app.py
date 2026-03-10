@@ -56,7 +56,6 @@ def main():
                 "선택해주세요",
                 "우주데이터센터기획 정책 분과위원회",
                 "위성설계기술 분과위원회",
-                "탑재컴퓨터설계기술 분과위원회",
                 "대형태양광기술 및 전력관리 분과위원회",
                 "위성열제어기술 분과위원회",
                 "방사선차폐기술 분과위원회",
@@ -70,7 +69,6 @@ def main():
     if submit_button:
         if name and affiliation and contact and dob and committee != "선택해주세요":
             
-            # 입력 데이터 앞뒤 공백 제거 (띄어쓰기 오류 방지)
             clean_name = name.strip()
             clean_dob = dob.strip()
             
@@ -78,19 +76,20 @@ def main():
             is_duplicate = False
             
             if file_exists:
-                df = pd.read_csv(DATA_FILE)
-                # 이름과 생년월일이 모두 일치하는 데이터가 있는지 검사
+                # 에러 방지용: UTF-8로 먼저 읽어보고, 실패하면 한국 윈도우용 CP949로 읽습니다.
+                try:
+                    df = pd.read_csv(DATA_FILE, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(DATA_FILE, encoding='cp949')
+
                 if not df.empty and '성명' in df.columns and '생년월일' in df.columns:
-                    # 데이터 프레임 내의 값들도 공백을 제거하고 문자열로 변환하여 비교
                     match_name = df['성명'].astype(str).str.strip() == clean_name
                     match_dob = df['생년월일'].astype(str).str.strip() == clean_dob
                     is_duplicate = (match_name & match_dob).any()
 
             if is_duplicate:
-                # 중복일 경우 경고 메시지 출력하고 저장 생략
                 st.error(f"⚠️ {clean_name}님은 이미 발기인 명단에 등록되어 있습니다.")
             else:
-                # 중복이 아닐 경우 정상 저장 로직 수행
                 kst_time = (pd.Timestamp.utcnow() + pd.Timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
                 new_data = pd.DataFrame({
                     "성명": [clean_name],
@@ -106,6 +105,7 @@ def main():
                 else:
                     df = new_data
 
+                # 저장할 때는 다시 에러 없는 국제 표준(UTF-8)으로 강제 변환하여 저장합니다.
                 df.to_csv(DATA_FILE, index=False, encoding='utf-8-sig')
                 st.success("✅ 발기인 신청이 성공적으로 완료되었습니다. 동참해 주셔서 감사합니다.")
         else:
@@ -120,7 +120,11 @@ def main():
         
         if pwd_input == ADMIN_PASSWORD:
             if os.path.exists(DATA_FILE):
-                df = pd.read_csv(DATA_FILE)
+                # 여기도 다운로드를 위해 읽을 때 동일하게 에러 방지 코드를 적용합니다.
+                try:
+                    df = pd.read_csv(DATA_FILE, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(DATA_FILE, encoding='cp949')
                 
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
@@ -139,4 +143,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
